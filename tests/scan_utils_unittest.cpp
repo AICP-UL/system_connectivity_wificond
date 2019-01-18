@@ -22,7 +22,6 @@
 
 #include <gtest/gtest.h>
 
-#include "android/net/wifi/nl80211/IWifiScannerImpl.h"
 #include "wificond/net/kernel-header-latest/nl80211.h"
 #include "wificond/scanning/scan_result.h"
 #include "wificond/scanning/scan_utils.h"
@@ -40,7 +39,6 @@ using testing::Not;
 using testing::Return;
 using testing::_;
 
-using android::net::wifi::nl80211::IWifiScannerImpl;
 using android::net::wifi::nl80211::NativeScanResult;
 
 namespace android {
@@ -56,9 +54,7 @@ constexpr int32_t kFake2gRssiThreshold = -80;
 constexpr int32_t kFake5gRssiThreshold = -77;
 constexpr int32_t kFake6gRssiThreshold = -77;
 constexpr bool kFakeUseRandomMAC = true;
-constexpr bool kFakeRequestLowPower = true;
 constexpr bool kFakeRequestSchedScanRelativeRssi = true;
-constexpr int kFakeScanType = IWifiScannerImpl::SCAN_TYPE_LOW_SPAN;
 
 // Currently, control messages are only created by the kernel and sent to us.
 // Therefore NL80211Packet doesn't have corresponding constructor.
@@ -120,16 +116,6 @@ MATCHER_P(DoesNL80211PacketHaveAttribute, attr,
   return arg.HasAttribute(attr);
 }
 
-MATCHER_P2(DoesNL80211PacketHaveAttributeWithUint32Value, attr, expected_value,
-           "Check if the netlink packet has atttribute |attr| with "
-           "|expected_value|") {
-  uint32_t actual_value;
-  if (!arg.GetAttributeValue(attr, &actual_value)) {
-    return false;
-  }
-  return actual_value == expected_value;
-}
-
 TEST_F(ScanUtilsTest, CanGetScanResult) {
   vector<NativeScanResult> scan_results;
   EXPECT_CALL(
@@ -155,103 +141,9 @@ TEST_F(ScanUtilsTest, CanSendScanRequest) {
                   AppendMessageAndReturn, response, true, _1, _2)));
   int errno_ignored;
   EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, kFakeUseRandomMAC,
-                               kFakeScanType, false, {}, {}, &errno_ignored));
+                               false, {}, {}, &errno_ignored));
   // TODO(b/34231420): Add validation of requested scan ssids, threshold,
   // and frequencies.
-}
-
-TEST_F(ScanUtilsTest, CanSendScanRequestWithRandomAddr) {
-  NL80211Packet response = CreateControlMessageAck();
-  EXPECT_CALL(
-      netlink_manager_,
-      SendMessageAndGetResponses(
-           AllOf(
-               DoesNL80211PacketMatchCommand(NL80211_CMD_TRIGGER_SCAN),
-               DoesNL80211PacketHaveAttributeWithUint32Value(
-                   NL80211_ATTR_SCAN_FLAGS, NL80211_SCAN_FLAG_RANDOM_ADDR)),
-           _)).
-      WillOnce(Invoke(bind(AppendMessageAndReturn, response, true, _1, _2)));
-
-  int errno_ignored;
-  EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, true,
-                               IWifiScannerImpl::SCAN_TYPE_DEFAULT,
-                               false, {}, {}, &errno_ignored));
-}
-
-TEST_F(ScanUtilsTest, CanSendScanRequestForLowSpanScan) {
-  NL80211Packet response = CreateControlMessageAck();
-  EXPECT_CALL(
-      netlink_manager_,
-      SendMessageAndGetResponses(
-           AllOf(
-               DoesNL80211PacketMatchCommand(NL80211_CMD_TRIGGER_SCAN),
-               DoesNL80211PacketHaveAttributeWithUint32Value(
-                   NL80211_ATTR_SCAN_FLAGS,
-                   static_cast<uint32_t>(NL80211_SCAN_FLAG_LOW_SPAN |
-                                                            NL80211_SCAN_FLAG_COLOCATED_6GHZ))),
-           _)).
-      WillOnce(Invoke(bind(AppendMessageAndReturn, response, true, _1, _2)));
-
-  int errno_ignored;
-  EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, false,
-                               IWifiScannerImpl::SCAN_TYPE_LOW_SPAN,
-                               true, {}, {}, &errno_ignored));
-}
-
-TEST_F(ScanUtilsTest, CanSendScanRequestForLowPowerScan) {
-  NL80211Packet response = CreateControlMessageAck();
-  EXPECT_CALL(
-      netlink_manager_,
-      SendMessageAndGetResponses(
-           AllOf(
-               DoesNL80211PacketMatchCommand(NL80211_CMD_TRIGGER_SCAN),
-               DoesNL80211PacketHaveAttributeWithUint32Value(
-                   NL80211_ATTR_SCAN_FLAGS, NL80211_SCAN_FLAG_LOW_POWER)),
-           _)).
-      WillOnce(Invoke(bind(AppendMessageAndReturn, response, true, _1, _2)));
-
-  int errno_ignored;
-  EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, false,
-                               IWifiScannerImpl::SCAN_TYPE_LOW_POWER,
-                               false, {}, {}, &errno_ignored));
-}
-
-TEST_F(ScanUtilsTest, CanSendScanRequestForHighAccuracyScan) {
-  NL80211Packet response = CreateControlMessageAck();
-  EXPECT_CALL(
-      netlink_manager_,
-      SendMessageAndGetResponses(
-           AllOf(
-               DoesNL80211PacketMatchCommand(NL80211_CMD_TRIGGER_SCAN),
-               DoesNL80211PacketHaveAttributeWithUint32Value(
-                   NL80211_ATTR_SCAN_FLAGS, NL80211_SCAN_FLAG_HIGH_ACCURACY)),
-           _)).
-      WillOnce(Invoke(bind(AppendMessageAndReturn, response, true, _1, _2)));
-
-  int errno_ignored;
-  EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, false,
-                               IWifiScannerImpl::SCAN_TYPE_HIGH_ACCURACY,
-                               false, {}, {}, &errno_ignored));
-}
-
-TEST_F(ScanUtilsTest, CanSendScanRequestForHighAccuracyScanWithRandomAddr) {
-  NL80211Packet response = CreateControlMessageAck();
-  EXPECT_CALL(
-      netlink_manager_,
-      SendMessageAndGetResponses(
-           AllOf(
-               DoesNL80211PacketMatchCommand(NL80211_CMD_TRIGGER_SCAN),
-               DoesNL80211PacketHaveAttributeWithUint32Value(
-                   NL80211_ATTR_SCAN_FLAGS,
-                   static_cast<uint32_t>(NL80211_SCAN_FLAG_RANDOM_ADDR |
-                                         NL80211_SCAN_FLAG_HIGH_ACCURACY))),
-           _)).
-      WillOnce(Invoke(bind(AppendMessageAndReturn, response, true, _1, _2)));
-
-  int errno_ignored;
-  EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, true,
-                               IWifiScannerImpl::SCAN_TYPE_HIGH_ACCURACY,
-                               false, {}, {}, &errno_ignored));
 }
 
 TEST_F(ScanUtilsTest, CanHandleScanRequestFailure) {
@@ -264,7 +156,7 @@ TEST_F(ScanUtilsTest, CanHandleScanRequestFailure) {
                   AppendMessageAndReturn, response, true, _1, _2)));
   int error_code;
   EXPECT_FALSE(scan_utils_.Scan(kFakeInterfaceIndex, kFakeUseRandomMAC,
-                               kFakeScanType, false, {}, {}, &error_code));
+                               false, {}, {}, &error_code));
   EXPECT_EQ(kFakeErrorCode, error_code);
 }
 
@@ -310,27 +202,6 @@ TEST_F(ScanUtilsTest, CanHandleSchedScanRequestFailure) {
   EXPECT_EQ(kFakeErrorCode, error_code);
 }
 
-TEST_F(ScanUtilsTest, CanSendSchedScanRequestForLowPowerScan) {
-  NL80211Packet response = CreateControlMessageAck();
-  EXPECT_CALL(
-      netlink_manager_,
-       SendMessageAndGetResponses(
-           AllOf(
-               DoesNL80211PacketMatchCommand(NL80211_CMD_START_SCHED_SCAN),
-               DoesNL80211PacketHaveAttributeWithUint32Value(
-                   NL80211_ATTR_SCAN_FLAGS, NL80211_SCAN_FLAG_LOW_POWER)),
-           _));
-  int errno_ignored;
-  const SchedScanReqFlags req_flags = {
-    false, true, false
-  };
-  scan_utils_.StartScheduledScan(
-      kFakeInterfaceIndex,
-      SchedScanIntervalSetting(),
-      kFake2gRssiThreshold, kFake5gRssiThreshold, kFake6gRssiThreshold,
-      req_flags, {}, {}, {}, &errno_ignored);
-}
-
 TEST_F(ScanUtilsTest, CanSpecifyScanPlansForSchedScanRequest) {
   EXPECT_CALL(
       netlink_manager_,
@@ -346,7 +217,7 @@ TEST_F(ScanUtilsTest, CanSpecifyScanPlansForSchedScanRequest) {
       {{kFakeScheduledScanIntervalMs, 10 /* repeated times */}},
       kFakeScheduledScanIntervalMs * 3 /* interval for infinite scans */};
   const SchedScanReqFlags req_flags = {
-    kFakeUseRandomMAC, kFakeRequestLowPower, kFakeRequestSchedScanRelativeRssi
+    kFakeUseRandomMAC, kFakeRequestSchedScanRelativeRssi
   };
   scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,

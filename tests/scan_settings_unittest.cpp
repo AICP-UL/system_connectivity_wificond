@@ -47,6 +47,7 @@ constexpr int32_t kFakePnoIntervalMs = 20000;
 constexpr int32_t kFakePnoMin2gRssi = -80;
 constexpr int32_t kFakePnoMin5gRssi = -85;
 constexpr int32_t kFakePnoMin6gRssi = -89;
+constexpr int32_t kInvalidScanType = 100;
 
 constexpr uint32_t kFakeFrequency = 5260;
 constexpr uint32_t kFakeFrequency1 = 2460;
@@ -119,7 +120,7 @@ TEST_F(ScanSettingsTest, SingleScanSettingsParcelableWriteInvalidScanType) {
   channel.frequency_ = kFakeFrequency;
   channel1.frequency_ = kFakeFrequency1;
   channel2.frequency_ = kFakeFrequency2;
-  scan_settings.scan_type_ = IWifiScannerImpl::SCAN_TYPE_DEFAULT;
+  scan_settings.scan_type_ = kInvalidScanType;
 
   HiddenNetwork network;
   network.ssid_ =

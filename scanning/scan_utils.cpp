@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "android/net/wifi/nl80211/IWifiScannerImpl.h"
 #include "wificond/scanning/scan_utils.h"
 
 #include <array>
@@ -30,7 +29,6 @@
 #include "wificond/net/nl80211_packet.h"
 #include "wificond/scanning/scan_result.h"
 
-using android::net::wifi::nl80211::IWifiScannerImpl;
 using android::net::wifi::nl80211::NativeScanResult;
 using android::net::wifi::nl80211::RadioChainInfo;
 using std::array;
@@ -277,7 +275,6 @@ bool ScanUtils::GetSSIDFromInfoElement(const vector<uint8_t>& ie,
 
 bool ScanUtils::Scan(uint32_t interface_index,
                      bool request_random_mac,
-                     int scan_type,
                      bool enable_6ghz_rnr,
                      const vector<vector<uint8_t>>& ssids,
                      const vector<uint32_t>& freqs,
@@ -312,34 +309,13 @@ bool ScanUtils::Scan(uint32_t interface_index,
   if (!freqs.empty()) {
     trigger_scan.AddAttribute(freqs_attr);
   }
-
-  uint32_t scan_flags = 0;
-  if (request_random_mac) {
-    scan_flags |= NL80211_SCAN_FLAG_RANDOM_ADDR;
-  }
-  switch (scan_type) {
-    case IWifiScannerImpl::SCAN_TYPE_LOW_SPAN:
-      scan_flags |= NL80211_SCAN_FLAG_LOW_SPAN;
-      break;
-    case IWifiScannerImpl::SCAN_TYPE_LOW_POWER:
-      scan_flags |= NL80211_SCAN_FLAG_LOW_POWER;
-      break;
-    case IWifiScannerImpl::SCAN_TYPE_HIGH_ACCURACY:
-      scan_flags |= NL80211_SCAN_FLAG_HIGH_ACCURACY;
-      break;
-    case IWifiScannerImpl::SCAN_TYPE_DEFAULT:
-      break;
-    default:
-      CHECK(0) << "Invalid scan type received: " << scan_type;
-  }
   if (enable_6ghz_rnr) {
     scan_flags |= NL80211_SCAN_FLAG_COLOCATED_6GHZ;
   }
-  if (scan_flags) {
+  if (request_random_mac) {
     trigger_scan.AddAttribute(
         NL80211Attr<uint32_t>(NL80211_ATTR_SCAN_FLAGS,
-                              scan_flags));
-    LOG(DEBUG) << "Triggering scan with scan_flag=" << scan_flags;
+                              NL80211_SCAN_FLAG_RANDOM_ADDR));
   }
   // We are receiving an ERROR/ACK message instead of the actual
   // scan results here, so it is OK to expect a timely response because
@@ -498,17 +474,10 @@ bool ScanUtils::StartScheduledScan(
         NL80211Attr<uint32_t>(NL80211_ATTR_SCHED_SCAN_INTERVAL,
                               interval_setting.final_interval_ms));
   }
-  uint32_t scan_flags = 0;
   if (req_flags.request_random_mac) {
-    scan_flags |= NL80211_SCAN_FLAG_RANDOM_ADDR;
-  }
-  if (req_flags.request_low_power) {
-    scan_flags |= NL80211_SCAN_FLAG_LOW_POWER;
-  }
-  if (scan_flags) {
     start_sched_scan.AddAttribute(
         NL80211Attr<uint32_t>(NL80211_ATTR_SCAN_FLAGS,
-                              scan_flags));
+                              NL80211_SCAN_FLAG_RANDOM_ADDR));
   }
 
   vector<unique_ptr<const NL80211Packet>> response;
